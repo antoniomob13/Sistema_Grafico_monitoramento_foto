@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LABER Premium - Monitoramento Fotovoltaico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body { font-family: 'Inter', sans-serif; }
+        
+        /* Tema Escuro Premium (Slate/Teal) */
+        .bg-main { background-color: #0f172a; }
+        .bg-sidebar { background-color: #1e293b; }
+        .text-primary { color: #2dd4bf; }
+        .border-primary { border-color: #2dd4bf; }
+        .bg-primary { background-color: #14b8a6; }
+
+        /* Efeito de Gradiente Foco no Login */
+        .login-focus-bg {
+            background: radial-gradient(circle at 50% 50%, rgba(45, 212, 191, 0.1) 0%, rgba(45, 212, 191, 0) 70%);
+        }
+
+        /* Indicador de Status Premium (Pulse) */
+        @keyframes pulse-teal {
+            0% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.7); }
+            70% { box-shadow: 0 0 0 12px rgba(45, 212, 191, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(45, 212, 191, 0); }
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.7); }
+            70% { box-shadow: 0 0 0 12px rgba(248, 113, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0); }
+        }
+        .status-dot-online { animation: pulse-teal 2s infinite; }
+        .status-dot-error { animation: pulse-red 2s infinite; }
+
+        .hidden-section { display: none !important; }
+
+        /* Estilo da Bateria Aprimorado (Dark Mode Ready) */
+        .battery-shell {
+            width: 40px; height: 70px; border: 2px solid #94a3b8; border-radius: 6px; position: relative; padding: 1px;
+            display: flex; align-items: flex-end; justify-content: center;
+        }
+        .battery-shell::before {
+            content: ''; position: absolute; top: -4px; left: 12px; width: 12px; height: 3px; background: #94a3b8; border-radius: 1px 1px 0 0;
+        }
+        .battery-level {
+            width: 100%; border-radius: 4px; transition: height 1s ease;
+        }
+    </style>
+</head>
+<body class="bg-main text-white antialiased">
+
+    <div id="login-screen" class="min-h-screen flex flex-col items-center justify-center bg-gray-900 login-focus-bg transition-all duration-700">
+        <div class="mb-10 text-center">
+            <div class="flex items-center justify-center mb-3">
+                <i class="fa-solid fa-bolt-lightning text-teal-400 text-6xl mr-3 opacity-90"></i>
+                <h1 class="text-5xl font-extrabold text-gray-50 tracking-tight">LABER</h1>
+            </div>
+            <p class="text-sm text-gray-400 uppercase tracking-widest font-medium">Plataforma de Monitoramento de Energia</p>
+        </div>
+
+        <div class="bg-slate-800 p-12 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-700/50 transform transition-all duration-300 hover:shadow-teal-900/50">
+            <h2 class="text-2xl font-semibold text-gray-100 mb-8 text-center border-b border-slate-700 pb-4">Acesso Seguro</h2>
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label for="email" class="block text-xs font-medium text-gray-400 uppercase mb-2 flex items-center"><i class="fa-solid fa-envelope mr-2"></i> Usuário (Email)</label>
+                    <input type="email" id="email" required 
+                        class="w-full px-5 py-3 rounded-xl border border-slate-700 bg-slate-700 text-gray-100 placeholder-gray-500 focus:border-teal-400 focus:ring-1 focus:ring-teal-500 transition-all outline-none shadow-inner" 
+                        placeholder="cliente@ufopa.br" value="cliente@ufopa.br">
+                </div>
+                <div>
+                    <label for="password" class="block text-xs font-medium text-gray-400 uppercase mb-2 flex items-center"><i class="fa-solid fa-lock mr-2"></i> Senha</label>
+                    <input type="password" id="password" required 
+                        class="w-full px-5 py-3 rounded-xl border border-slate-700 bg-slate-700 text-gray-100 placeholder-gray-500 focus:border-teal-400 focus:ring-1 focus:ring-teal-500 transition-all outline-none shadow-inner" 
+                        placeholder="Senha de acesso" value="123">
+                </div>
+                <button type="submit" class="w-full bg-primary hover:bg-teal-600 text-white font-bold py-3.5 rounded-xl transition-all duration-300 shadow-lg shadow-teal-500/30 transform hover:scale-[1.01] flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-sign-in-alt"></i> <span>ENTRAR NO PAINEL</span>
+                </button>
+                <div class="text-center mt-6">
+                    <p class="text-xs text-gray-500">Credenciais de teste: <span class="font-mono text-teal-400">cliente@ufopa.br (123)</span> ou <span class="font-mono text-teal-400">admin@ufopa.br (123)</span></p>
+                    <p id="login-error" class="text-sm text-red-400 mt-2 hidden">Falha na autenticação. Tente novamente.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="main-layout" class="hidden-section flex h-screen overflow-hidden">
+        
+        <aside class="w-64 bg-sidebar text-white flex flex-col shadow-2xl z-20 border-r border-slate-700/50">
+            <div class="h-16 flex items-center justify-center border-b border-slate-700 bg-slate-900/50">
+                <i class="fa-solid fa-cube text-teal-400 mr-3 text-2xl"></i>
+                <span class="font-extrabold text-2xl tracking-widest text-gray-100">LABER</span>
+            </div>
+
+            <nav id="sidebar-menu" class="flex-1 overflow-y-auto py-4 space-y-2">
+            </nav>
+
+            <div class="p-4 bg-slate-950/50 text-xs text-gray-500 text-center border-t border-slate-700">
+                &copy; 2025 UFOPA | Energy Tech
+            </div>
+        </aside>
+
+        <div class="flex-1 flex flex-col overflow-hidden relative bg-main">
+            
+            <header class="h-16 bg-slate-800 shadow-xl flex justify-between items-center px-6 z-10 border-b border-slate-700/50">
+                <div class="flex items-center">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Marca_UFOPA_2010.jpg/1200px-Marca_UFOPA_2010.jpg" alt="Logo UFOPA" class="h-8 w-auto opacity-80 transition-all filter grayscale hover:grayscale-0">
+                </div>
+                
+                <div class="flex items-center cursor-pointer hover:bg-slate-700/70 p-2 rounded-xl transition-all" onclick="router('profile')">
+                    <div class="text-right mr-4 hidden sm:block">
+                        <p id="header-user-name" class="text-base font-semibold text-gray-100">Carregando...</p>
+                        <p id="header-user-role" class="text-xs text-teal-400 font-medium uppercase tracking-wider">Função</p>
+                    </div>
+                    <div class="h-10 w-10 rounded-full bg-teal-800 text-teal-400 flex items-center justify-center border-2 border-teal-600 shadow-lg">
+                        <i class="fa-solid fa-user-circle text-xl"></i>
+                    </div>
+                </div>
+            </header>
+
+            <main id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto bg-main text-gray-100 p-6 md:p-10">
+                <div class="text-center p-20">
+                    <i class="fa-solid fa-spinner fa-spin text-teal-400 text-4xl mb-4"></i>
+                    <p class="text-gray-400">Aguardando login...</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis Globais de Estado
+        let currentUser = null;
+        let currentSystem = null; 
+        
+        // --- Mock Data para Sistemas e Clientes (Usado temporariamente no Frontend) ---
+        // Em um projeto real, estes dados viriam de chamadas GET à API (sistemas.php, clientes.php)
+        const MOCK_SYSTEMS = [
+             { 
+                _id: '656461746f6c616265727379', // Este ID corresponde ao 'sistema_id' no seed do login.php
+                id_cliente: 'u1', nome: 'Unidade Tapajós 01', status_operacional: 'Online', 
+                localizacao: { lat: -2.443, long: -54.708, rua: 'Rua Principal, 10', cep: '68040-000' },
+                capacidade_wp: 1000, media_dia_kwh: 4.5, media_mes_kwh: 135,
+                // O ID do subsistema abaixo deve ser usado para buscar a leitura na API
+                subsistema: [
+                    { _id: 'sub1', nome: 'Geração PV', tipo: 'Geração', componentes: [ { tipo: 'Painel', marca: 'Canadian Solar', modelo: '540W', qtd: 2 } ] },
+                    { _id: 'sub2', nome: 'Armazenamento', tipo: 'Bateria', componentes: [ { tipo: 'Bateria', marca: 'Moura', modelo: '10.5kWh', qtd: 2 }, { tipo: 'Controlador', marca: 'Victron', modelo: 'SmartSolar', qtd: 1 } ] }
+                ]
+            },
+            { _id: 'sys2', id_cliente: 'u99', nome: 'Unidade Arapiuns 05', status_operacional: 'Offline', capacidade_wp: 500, media_dia_kwh: 0, media_mes_kwh: 20, subsistema: [], localizacao: { rua: 'Rua B', cep: '68000-000' } },
+            { _id: 'sys3', id_cliente: 'u98', nome: 'Unidade Várzea 02', status_operacional: 'Alerta/Erro', capacidade_wp: 2000, media_dia_kwh: 1.2, media_mes_kwh: 100, subsistema: [], localizacao: { rua: 'Rua C', cep: '68000-000' } },
+        ];
+        const MOCK_CLIENTS = [
+            { _id: 'u1', nome: 'Maria Ribeirinha', email: 'cliente@ufopa.br', tipo: 'cliente', endereco: 'Comunidade A, Casa 2', sistema_id: '656461746f6c616265727379', tel: '93991112233' },
+            { _id: 'u2', nome: 'Dr. Carlos Pesquisador', email: 'admin@ufopa.br', tipo: 'admin', endereco: 'Campus UFOPA', sistema_id: null, tel: '93994445566' }
+        ];
+
+        // ================== FUNÇÕES DE API (CHAMADAS REAIS AO PHP) ==================
+
+        const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8080';
+        const API_BASE_URL = (() => {
+            if (window.LABER_API_BASE_URL !== undefined) {
+                return window.LABER_API_BASE_URL.replace(/\/$/, '');
+            }
+            const currentOrigin = window.location.origin;
+            const isSameBackend = /(:8080|:8000|\/backend)/.test(currentOrigin);
+            return isSameBackend ? '' : DEFAULT_API_BASE_URL;
+        })();
+
+        /**
+         * Wrapper para chamadas Fetch para o backend PHP.
+         */
+        async function callApi(endpoint, method = 'GET', body = null) {
+            const sanitizedBase = API_BASE_URL ? API_BASE_URL.replace(/\/$/, '') : '';
+            const apiUrl = `${sanitizedBase}/api/${endpoint}`.replace(/([^:]\/)\/+/g, '$1');
+            const options = {
+                method,
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }
+            };
+            if (body && method !== 'GET') {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(apiUrl, options);
+                const rawText = await response.text();
+                let data = null;
+
+                if (rawText) {
+                    try {
+                        data = JSON.parse(rawText);
+                    } catch (parseError) {
+                        console.error('Resposta não JSON recebida da API:', rawText);
+                        throw new Error('Resposta inválida do backend (esperado JSON). Verifique se o servidor PHP está em execução em http://127.0.0.1:8080/api/.');
+                    }
+                }
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        return null;
+                    }
+                    throw new Error(data?.error || `Erro HTTP: ${response.status} - ${response.statusText}`);
+                }
+
+                return data;
+
+            } catch (error) {
+                console.error(`Erro na API (${endpoint}):`, error);
+                throw error; 
+            }
+        }
+
+        // ================== LÓGICA DE LOGIN ==================
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('login-error');
+            errorElement.classList.add('hidden');
+
+            try {
+                // Chama a API PHP para autenticação
+                const result = await callApi('login.php', 'POST', { email, password });
+                
+                currentUser = result.user;
+                
+                // Usa o ID retornado pela API para buscar os detalhes mockados do sistema
+                if (currentUser.sistema_id) {
+                     currentSystem = MOCK_SYSTEMS.find(s => s._id === currentUser.sistema_id);
+                } else {
+                     currentSystem = null;
+                }
+
+                document.getElementById('login-screen').classList.add('hidden-section');
+                document.getElementById('main-layout').classList.remove('hidden-section');
+                document.getElementById('main-layout').classList.add('flex');
+                
+                updateHeader();
+                buildSidebar();
+                router('home');
+                
+            } catch (error) {
+                errorElement.textContent = error.message || 'Falha na autenticação. Verifique o servidor PHP.';
+                errorElement.classList.remove('hidden');
+            }
+        });
+
+        // ================== UTILS & HEADER ==================
+
+        function getSystem(id) { 
+             // Em um sistema real, faria uma chamada API GET /api/sistemas.php?id=X
+             return MOCK_SYSTEMS.find(s => s._id === id); 
+        }
+
+        function getUser(id) {
+            // Em um sistema real, faria uma chamada API GET /api/clientes.php?id=X
+            return MOCK_CLIENTS.find(u => u._id === id);
+        }
+
+        /**
+         * Busca a leitura mais recente de um subsistema no MongoDB via API PHP.
+         */
+        async function getLeituraAtual(subsistemaId) {
+            if (!subsistemaId) return { geracao_w: 0, soc_bateria: 0, status: 'Sem Dados' };
+
+            try {
+                // CHAMADA CRÍTICA: /backend/api/leitura.php?action=current&id_subsistema=sub1
+                const data = await callApi(`leitura.php?action=current&id_subsistema=${subsistemaId}`);
+
+                if (!data) {
+                    return { geracao_w: 0, soc_bateria: 0, status: 'Sem Leitura Recente' };
+                }
+
+                // Mapeia o retorno do MongoDB para o formato de exibição do frontend
+                return {
+                    // Mapeamento dos documentos embutidos
+                    geracao_w: data.geracao?.potencia_W || 0,
+                    // Consumo é um dado que não está no modelo Leitura, mantemos um mock ou buscaríamos de outro campo
+                    consumo_w: 420, 
+                    soc_bateria: data.bateria?.soc_percent || 0,
+                    status: data.status || 'Desconhecido'
+                };
+            } catch (error) {
+                console.warn("Usando dados mock de leitura devido a falha de comunicação com o DB/API.", error.message);
+                // Retorno de fallback (dados mock)
+                return { geracao_w: 850, consumo_w: 420, soc_bateria: 82, status: 'Gerando (Mock)' };
+            }
+        }
+        
+        function updateHeader() {
+            if (!currentUser) return;
+            document.getElementById('header-user-name').textContent = currentUser.nome;
+            document.getElementById('header-user-role').textContent = currentUser.tipo === 'admin' ? 'Administrador LABER' : 'Beneficiário';
+        }
+
+        // ================== ROTEAMENTO E RENDERIZADORES (Adaptados para Async) ==================
+        
+        // Funções buildSidebar, router, e as telas de Admin permanecem iguais 
+        // mas são adaptadas para usar os MOCK_SYSTEMS e MOCK_CLIENTS no lugar do DB local
+        // (Para fins de concisão, as funções que não alteram a lógica de API foram truncadas.)
+
+        function buildSidebar() {
+            const menu = document.getElementById('sidebar-menu');
+            menu.innerHTML = '';
+            
+            const commonClass = "flex items-center px-6 py-3.5 hover:bg-slate-700/70 cursor-pointer border-l-4 border-transparent hover:border-teal-400 transition-all duration-200 text-gray-300 hover:text-white rounded-r-full";
+            
+            if (currentUser.tipo === 'cliente') {
+                menu.innerHTML += `
+                    <div onclick="router('home')" id="nav-home" class="${commonClass} active-link">
+                        <i class="fa-solid fa-gauge-high w-6 text-xl"></i> <span class="ml-3 font-medium">Dashboard Visão Geral</span>
+                    </div>
+                    <div onclick="router('equipments')" id="nav-equipments" class="${commonClass}">
+                        <i class="fa-solid fa-solar-panel w-6 text-xl"></i> <span class="ml-3 font-medium">Inventário e Subsistemas</span>
+                    </div>
+                    <div onclick="router('analytics')" id="nav-analytics" class="${commonClass}">
+                        <i class="fa-solid fa-chart-line w-6 text-xl"></i> <span class="ml-3 font-medium">Gráficos & Análises</span>
+                    </div>
+                `;
+            }
+            
+            if (currentUser.tipo === 'admin') {
+                menu.innerHTML += `
+                    <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold mt-4 mb-2 px-6">ADMINISTRAÇÃO DA FROTA</p>
+                    <div onclick="router('admin_home')" id="nav-admin_home" class="${commonClass}">
+                        <i class="fa-solid fa-server w-6 text-xl"></i> <span class="ml-3 font-medium">Dashboard Geral</span>
+                    </div>
+                    <div onclick="router('admin_systems')" id="nav-admin_systems" class="${commonClass}">
+                        <i class="fa-solid fa-network-wired w-6 text-xl"></i> <span class="ml-3 font-medium">Gestão de Sistemas</span>
+                    </div>
+                    <div onclick="router('admin_clients')" id="nav-admin_clients" class="${commonClass}">
+                        <i class="fa-solid fa-users-gear w-6 text-xl"></i> <span class="ml-3 font-medium">Gestão de Clientes</span>
+                    </div>
+                `;
+            }
+
+            menu.innerHTML += `
+                <div onclick="location.reload()" class="flex items-center px-6 py-3.5 hover:bg-red-800/50 cursor-pointer mt-12 text-red-300 rounded-r-full border-l-4 border-transparent hover:border-red-500 transition-all duration-200">
+                    <i class="fa-solid fa-right-from-bracket w-6 text-xl"></i> <span class="ml-3 font-medium">Sair</span>
+                </div>
+            `;
+        }
+
+        function router(view, params = null) {
+            const main = document.getElementById('main-content');
+            main.innerHTML = '<div class="text-center p-20"><i class="fa-solid fa-spinner fa-spin text-teal-400 text-4xl mb-4"></i><p class="text-gray-400">Carregando...</p></div>';
+            main.scrollTop = 0; 
+
+            document.querySelectorAll('#sidebar-menu div').forEach(link => {
+                link.classList.remove('border-teal-400', 'bg-slate-700/70', 'text-white');
+                link.classList.add('text-gray-300', 'border-transparent');
+                
+                if (link.id === `nav-${view}`) {
+                    link.classList.add('border-teal-400', 'bg-slate-700/70', 'text-white');
+                    link.classList.remove('text-gray-300');
+                }
+            });
+
+            if (!currentUser) { 
+                main.innerHTML = `<h2 class="text-2xl font-bold text-red-500">Acesso Negado</h2><p class="text-gray-400">Sessão inválida. Por favor, faça login.</p>`;
+                return;
+            }
+
+            // Chamada para as funções async
+            switch(view) {
+                case 'home': renderUserHome(main); break;
+                case 'profile': renderUserProfile(main); break;
+                case 'equipments': renderUserEquipments(main); break;
+                case 'analytics': renderUserAnalytics(main, params); break;
+                case 'admin_home': renderAdminHome(main); break;
+                case 'admin_systems': renderAdminSystems(main); break;
+                case 'admin_clients': renderAdminClients(main); break;
+                default: main.innerHTML = `<h2 class="text-2xl font-bold">404 - Tela Não Encontrada</h2>`;
+            }
+        }
+
+        // 1. TELA INICIAL USUÁRIO (ASYNC para a API)
+        async function renderUserHome(container) {
+            const sys = currentSystem; 
+            if (!sys) { return container.innerHTML = `<h2 class="text-2xl font-bold text-red-500">Erro</h2><p class="text-gray-400">Sistema não encontrado para este usuário.</p>`; }
+
+            // A leitura do subsistema[0] é usada como a leitura principal
+            const subsistemaId = sys.subsistema[0]._id;
+            const leit = await getLeituraAtual(subsistemaId); 
+
+            let statusColor = 'text-gray-400';
+            let statusDot = 'bg-gray-400';
+            if(leit.status.includes('Gerando')) { statusColor = 'text-teal-400'; statusDot = 'bg-teal-400 status-dot-online'; }
+            if(leit.status.includes('Erro')) { statusColor = 'text-red-400'; statusDot = 'bg-red-400 status-dot-error'; }
+            if(leit.status.includes('Offline') || leit.status.includes('Sem')) { statusColor = 'text-amber-400'; statusDot = 'bg-amber-400'; }
+
+            const socPercent = leit.soc_bateria.toFixed(1);
+            const batteryColor = socPercent > 70 ? 'bg-teal-500' : socPercent > 30 ? 'bg-yellow-500' : 'bg-red-500';
+
+            container.innerHTML = `
+                <div class="border-b border-slate-700 pb-4 mb-8">
+                    <h2 class="text-3xl font-extrabold text-gray-100">${sys.nome}</h2>
+                    <p class="text-lg text-teal-400 font-light mt-1"><i class="fa-solid fa-map-marker-alt mr-2"></i> ${sys.localizacao.rua || 'Localização Desconhecida'} - ${sys.localizacao.cep || 'CEP'}</p>
+                </div>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+                    <div class="bg-slate-800 rounded-2xl shadow-xl p-6 border-t-4 ${leit.status.includes('Gerando') ? 'border-teal-500' : 'border-red-500'} flex items-center justify-between transition-all duration-300 hover:bg-slate-700/70">
+                        <div>
+                            <p class="text-sm text-gray-400 uppercase tracking-widest">Status Operacional</p>
+                            <h3 class="text-4xl font-extrabold ${statusColor} mt-2 flex items-center">${leit.status.toUpperCase()}</h3>
+                        </div>
+                        <div class="h-8 w-8 rounded-full ${statusDot}"></div>
+                    </div>
+
+                    <div class="bg-slate-800 rounded-2xl shadow-xl p-6 transition-all duration-300 hover:bg-slate-700/70">
+                        <i class="fa-solid fa-solar-panel text-yellow-400 text-3xl mb-3"></i>
+                        <p class="text-gray-400 text-sm uppercase tracking-widest">Geração Instantânea</p>
+                        <p class="text-4xl font-extrabold mt-1">${leit.geracao_w.toFixed(1)} <span class="text-xl font-medium text-gray-400">W</span></p>
+                    </div>
+
+                    <div class="bg-slate-800 rounded-2xl shadow-xl p-6 transition-all duration-300 hover:bg-slate-700/70">
+                        <i class="fa-solid fa-fan text-blue-400 text-3xl mb-3"></i>
+                        <p class="text-gray-400 text-sm uppercase tracking-widest">Consumo da Carga</p>
+                        <p class="text-4xl font-extrabold mt-1">${leit.consumo_w.toFixed(1)} <span class="text-xl font-medium text-gray-400">W</span></p>
+                    </div>
+
+                    <div class="bg-slate-800 rounded-2xl shadow-xl p-6 flex items-center justify-between transition-all duration-300 hover:bg-slate-700/70">
+                        <div>
+                            <p class="text-gray-400 text-sm uppercase tracking-widest">Nível da Bateria (SOC)</p>
+                            <p class="text-4xl font-extrabold mt-1 text-white">${socPercent}%</p>
+                        </div>
+                        <div class="battery-shell border-gray-100">
+                            <div class="battery-level ${batteryColor}" style="height: ${socPercent}%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700/50">
+                        <h3 class="text-xl font-bold mb-4 text-gray-100"><i class="fa-solid fa-bolt text-teal-400 mr-2"></i> Geração Diária (Simulação)</h3>
+                        <div class="h-80 w-full relative">
+                            <canvas id="quickChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border border-slate-700/50 space-y-4">
+                        <h3 class="text-xl font-bold mb-4 text-gray-100"><i class="fa-solid fa-list-check text-teal-400 mr-2"></i> KPIs Chave</h3>
+                        <div class="flex justify-between p-3 bg-slate-700/50 rounded-lg">
+                            <p class="text-gray-400 font-medium">Capacidade Instalada</p>
+                            <p class="font-bold text-lg text-teal-400">${sys.capacidade_wp} Wp</p>
+                        </div>
+                        <div class="flex justify-between p-3 bg-slate-700/50 rounded-lg">
+                            <p class="text-gray-400 font-medium">Produção Média Diária</p>
+                            <p class="font-bold text-lg text-white">${sys.media_dia_kwh} kWh</p>
+                        </div>
+                        <div class="flex justify-between p-3 bg-slate-700/50 rounded-lg">
+                            <p class="text-gray-400 font-medium">Produção Média Mensal</p>
+                            <p class="font-bold text-lg text-white">${sys.media_mes_kwh} kWh</p>
+                        </div>
+                        <div class="flex justify-between p-3 bg-slate-700/50 rounded-lg">
+                            <p class="text-gray-400 font-medium">Horas de Sol Pico Estimadas</p>
+                            <p class="font-bold text-lg text-white">${(sys.media_dia_kwh / (sys.capacidade_wp / 1000)).toFixed(1)} h</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Renderizar Gráfico Rápido Chart.js Mock
+            const ctx = document.getElementById('quickChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['06h', '08h', '10h', '12h', '14h', '16h', '18h'],
+                    datasets: [{
+                        label: 'Geração Fotovoltaica (W)',
+                        data: [0, 150, 450, 980, leit.geracao_w, 300, 20],
+                        borderColor: '#2dd4bf', 
+                        backgroundColor: 'rgba(45, 212, 191, 0.2)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                        y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        // 2. TELA PERFIL
+        function renderUserProfile(container) {
+            if (!currentUser) { return; } 
+
+            container.innerHTML = `
+                <div class="max-w-4xl mx-auto bg-slate-800 rounded-3xl shadow-3xl overflow-hidden border border-slate-700/50">
+                    <div class="bg-teal-700 h-32 relative">
+                        <div class="absolute inset-0 bg-teal-800/20 backdrop-blur-sm"></div>
+                    </div>
+                    <div class="px-8 md:px-12 pb-10 relative">
+                        <div class="h-28 w-28 bg-slate-700 rounded-full border-4 border-slate-800 shadow-xl -mt-14 flex items-center justify-center mx-auto sm:mx-0">
+                            <i class="fa-solid fa-user-circle text-5xl text-teal-400"></i>
+                        </div>
+                        
+                        <div class="mt-8">
+                            <h2 class="text-3xl font-extrabold text-gray-100 border-b border-slate-700 pb-2 mb-4">${currentUser.nome} <span class="text-teal-400">(${currentUser.tipo.toUpperCase()})</span></h2>
+                            <p class="text-gray-400 text-sm mb-8">Gerencie suas informações de contato e credenciais de acesso.</p>
+
+                            <form class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Email (Login)</label>
+                                        <input type="email" value="${currentUser.email}" class="mt-1 w-full p-2 bg-transparent border-b border-teal-500 text-gray-100 focus:outline-none" readonly>
+                                    </div>
+                                    <div class="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Telefone</label>
+                                        <input type="text" value="${currentUser.tel || 'N/A'}" class="mt-1 w-full p-2 bg-transparent border-b border-teal-500 text-gray-100 focus:outline-none">
+                                    </div>
+                                </div>
+                                
+                                <div class="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                                    <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Endereço (Atualização)</label>
+                                    <input type="text" value="${currentUser.endereco || 'N/A'}" class="mt-1 w-full p-2 bg-transparent border-b border-teal-500 text-gray-100 focus:outline-none">
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Nova Senha</label>
+                                        <input type="password" placeholder="Deixe em branco para manter a atual" class="mt-1 w-full p-2 bg-transparent border-b border-red-500 text-gray-100 focus:outline-none">
+                                    </div>
+                                    <div class="p-4 bg-slate-900 rounded-xl border border-slate-700">
+                                        <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Confirme a Nova Senha</label>
+                                        <input type="password" placeholder="Repita a nova senha" class="mt-1 w-full p-2 bg-transparent border-b border-red-500 text-gray-100 focus:outline-none">
+                                    </div>
+                                </div>
+                                
+                                <div class="flex justify-end pt-4">
+                                    <button type="button" class="bg-primary text-white px-8 py-3 rounded-xl hover:bg-teal-600 transition-all font-bold shadow-lg shadow-teal-500/20">
+                                        <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Salvar Alterações
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 3. TELA EQUIPAMENTOS
+        function renderUserEquipments(container) {
+            const sys = currentSystem;
+            if (!sys) { return container.innerHTML = `<h2 class="text-2xl font-bold text-red-500">Erro</h2><p class="text-gray-400">Sistema não encontrado para este usuário.</p>`; }
+
+            let html = `
+                <h2 class="text-3xl font-extrabold text-gray-100 mb-2">Inventário de Componentes</h2>
+                <p class="text-lg text-gray-400 mb-8">Lista detalhada de todos os equipamentos do sistema <span class="text-teal-400">${sys.nome}</span>.</p>
+            `;
+
+            sys.subsistema.forEach((sub, index) => {
+                const icon = sub.tipo.includes('Geração') ? 'fa-bolt' : 'fa-battery-full';
+                const color = sub.tipo.includes('Geração') ? 'text-yellow-400' : 'text-green-400';
+
+                html += `
+                    <div class="bg-slate-800 rounded-2xl shadow-xl mb-8 overflow-hidden border border-slate-700/50">
+                        <div class="bg-slate-700/50 px-6 py-4 border-b border-slate-700 flex justify-between items-center">
+                            <h3 class="font-bold text-2xl text-gray-100 flex items-center"><i class="fa-solid ${icon} mr-3 ${color}"></i> ${sub.nome}</h3>
+                            <span class="text-sm font-mono bg-teal-900/50 text-teal-400 px-3 py-1 rounded-full uppercase">${sub.tipo}</span>
+                        </div>
+                        <div class="p-6 md:p-8">
+                            <div class="overflow-x-auto rounded-lg border border-slate-700">
+                                <table class="min-w-full text-left text-sm">
+                                    <thead class="bg-slate-700">
+                                        <tr>
+                                            <th class="px-6 py-4 font-semibold text-gray-300">Componente</th>
+                                            <th class="px-6 py-4 font-semibold text-gray-300">Marca</th>
+                                            <th class="px-6 py-4 font-semibold text-gray-300">Modelo</th>
+                                            <th class="px-6 py-4 font-semibold text-gray-300 text-right">Quantidade</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-700">
+                `;
+                
+                sub.componentes.forEach(comp => {
+                    html += `
+                        <tr class="hover:bg-slate-700/70 transition duration-150">
+                            <td class="px-6 py-4 font-medium text-gray-200">${comp.tipo}</td>
+                            <td class="px-6 py-4 text-gray-300">${comp.marca}</td>
+                            <td class="px-6 py-4 text-gray-300">${comp.modelo}</td>
+                            <td class="px-6 py-4 text-gray-300 text-right"><span class="bg-blue-900/50 text-blue-400 px-3 py-1 rounded">${comp.qtd}</span></td>
+                        </tr>
+                    `;
+                });
+
+                html += `</tbody></table></div></div></div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // 4. TELA GRÁFICOS E ESTATÍSTICAS
+        async function renderUserAnalytics(container, params = null) {
+            const systemId = (params && params.sysId) ? params.sysId : currentUser.sistema_id;
+            const sys = getSystem(systemId);
+            
+            // Aqui seria a lógica para buscar dados históricos via callApi('leitura.php?action=history&...')
+            let chartData = [0, 150, 450, 980, 850, 300, 20]; 
+
+            if (!sys) { return container.innerHTML = `<h2 class="text-2xl font-bold text-red-500">Erro</h2><p class="text-gray-400">Sistema não encontrado.</p>`; }
+
+            container.innerHTML = `
+                <h2 class="text-3xl font-extrabold text-gray-100 mb-2">Análises Detalhadas</h2>
+                <p class="text-lg text-gray-400 mb-8">Dados históricos para <span class="text-teal-400">${sys.nome}</span>.</p>
+                
+                <div class="bg-slate-800 p-6 rounded-2xl shadow-xl mb-10 grid grid-cols-2 md:grid-cols-5 gap-4 items-end border border-slate-700/50">
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 uppercase">Data Inicial</label>
+                        <input type="date" class="w-full mt-2 p-2.5 rounded-lg text-sm bg-slate-700 border-slate-600 text-gray-100 focus:border-teal-400 focus:ring-1 focus:ring-teal-500" style="color-scheme: dark;">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 uppercase">Período</label>
+                        <select class="w-full mt-2 p-2.5 rounded-lg text-sm bg-slate-700 border-slate-600 text-gray-100 focus:border-teal-400 focus:ring-1 focus:ring-teal-500">
+                            <option>Diário</option>
+                            <option>Semanal</option>
+                            <option>Mensal</option>
+                            <option>Anual</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 uppercase">Variável Principal</label>
+                        <select class="w-full mt-2 p-2.5 rounded-lg text-sm bg-slate-700 border-slate-600 text-gray-100 focus:border-teal-400 focus:ring-1 focus:ring-teal-500">
+                            <option>Potência (W)</option>
+                            <option>Tensão (V)</option>
+                            <option>SOC (%)</option>
+                            <option>Temperatura (°C)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-400 uppercase">Tipo de Gráfico</label>
+                        <select id="chartTypeSelector" class="w-full mt-2 p-2.5 rounded-lg text-sm bg-slate-700 border-slate-600 text-gray-100 focus:border-teal-400 focus:ring-1 focus:ring-teal-500">
+                            <option value="line">Linha Suave</option>
+                            <option value="bar">Barras</option>
+                            <option value="doughnut">Rosca/Pizza</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button onclick="alert('Consulta avançada em andamento (Deve chamar leitura.php?action=history)...')" class="w-full bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 text-sm font-bold transition shadow-lg shadow-blue-500/20 mt-2">
+                            <i class="fa-solid fa-filter mr-1"></i> Aplicar Filtros
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-6 rounded-2xl shadow-xl h-[500px] w-full relative border border-slate-700/50">
+                    <canvas id="mainChart"></canvas>
+                </div>
+            `;
+
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00'],
+                    datasets: [{
+                        label: 'Geração Fotovoltaica (W)',
+                        data: chartData,
+                        borderColor: '#2dd4bf', 
+                        backgroundColor: 'rgba(45, 212, 191, 0.3)',
+                        fill: true,
+                        tension: 0.5,
+                        pointBackgroundColor: '#2dd4bf',
+                        pointBorderColor: '#0f172a',
+                        pointBorderWidth: 2
+                    },
+                    {
+                        label: 'Consumo Médio (W)',
+                        data: [200, 250, 220, 500, 300, 280, 400],
+                        borderColor: '#facc15', 
+                        backgroundColor: 'transparent',
+                        borderDash: [8, 4],
+                        tension: 0.1,
+                        pointBackgroundColor: '#facc15',
+                        pointBorderColor: '#0f172a',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { position: 'top', labels: { color: '#94a3b8', boxWidth: 15, padding: 20 } },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 41, 59, 0.9)', 
+                            titleColor: '#2dd4bf',
+                            bodyColor: '#e2e8f0',
+                            borderColor: '#334155',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: { grid: { color: '#334155', drawBorder: false }, ticks: { color: '#94a3b8' } },
+                        y: { beginAtZero: true, grid: { color: '#334155', drawBorder: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            document.getElementById('chartTypeSelector').addEventListener('change', (e) => {
+                const newType = e.target.value;
+                chart.destroy(); 
+                
+                const doughnutData = {
+                    labels: ['Geração PV', 'Armazenamento', 'Consumo da Carga'],
+                    datasets: [{
+                        data: [50, 30, 20],
+                        backgroundColor: ['#2dd4bf', '#facc15', '#60a5fa'],
+                        hoverOffset: 10
+                    }]
+                };
+
+                new Chart(ctx, {
+                    type: newType === 'line' || newType === 'bar' ? newType : 'doughnut',
+                    data: newType === 'line' || newType === 'bar' ? chart.config.data : doughnutData,
+                    options: chart.config.options 
+                });
+            });
+        }
+        
+        // 5. ADMIN HOME
+        function renderAdminHome(container) {
+            const systems = MOCK_SYSTEMS; 
+            const online = systems.filter(s => s.status_operacional === 'Online').length;
+            const offline = systems.filter(s => s.status_operacional === 'Offline').length;
+            const erro = systems.filter(s => s.status_operacional === 'Alerta/Erro').length;
+            const total = systems.length;
+
+            const sortedSystems = [...systems].sort((a, b) => {
+                const statusOrder = { 'Alerta/Erro': 3, 'Offline': 2, 'Online': 1 };
+                return statusOrder[b.status_operacional] - statusOrder[a.status_operacional];
+            });
+
+            container.innerHTML = `
+                <h2 class="text-3xl font-extrabold text-gray-100 mb-2">Dashboard Central de Sistemas</h2>
+                <p class="text-lg text-gray-400 mb-8">Visão geral do status de operação de toda a frota LABER.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                    <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border-b-4 border-teal-500 flex items-center transition-all duration-300 hover:scale-[1.01]">
+                        <div class="bg-teal-900/50 p-4 rounded-xl mr-4 status-dot-online shadow-inner">
+                            <i class="fa-solid fa-cloud-check text-teal-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm uppercase tracking-widest">Sistemas Online</p>
+                            <p class="text-3xl font-extrabold text-gray-100">${online} <span class="text-base text-gray-400">/ ${total}</span></p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border-b-4 border-gray-500 flex items-center transition-all duration-300 hover:scale-[1.01]">
+                        <div class="bg-gray-700/50 p-4 rounded-xl mr-4 shadow-inner">
+                            <i class="fa-solid fa-power-off text-gray-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm uppercase tracking-widest">Sistemas Offline</p>
+                            <p class="text-3xl font-extrabold text-gray-100">${offline}</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border-b-4 border-red-500 flex items-center transition-all duration-300 hover:scale-[1.01]">
+                        <div class="bg-red-900/50 p-4 rounded-xl mr-4 status-dot-error shadow-inner">
+                            <i class="fa-solid fa-triangle-exclamation text-red-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm uppercase tracking-widest">Sistemas com Alerta</p>
+                            <p class="text-3xl font-extrabold text-gray-100">${erro}</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border-b-4 border-yellow-500 flex items-center transition-all duration-300 hover:scale-[1.01]">
+                        <div class="bg-yellow-900/50 p-4 rounded-xl mr-4 shadow-inner">
+                            <i class="fa-solid fa-bolt text-yellow-400 text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-gray-400 text-sm uppercase tracking-widest">Capacidade Total</p>
+                            <p class="text-3xl font-extrabold text-gray-100">${systems.reduce((acc, sys) => acc + sys.capacidade_wp, 0)} <span class="text-base text-gray-400">Wp</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700/50">
+                    <div class="px-6 py-4 border-b border-slate-700 bg-slate-700/50">
+                        <h3 class="font-bold text-xl text-gray-100">Visão Rápida: Sistemas com Prioridade</h3>
+                        <p class="text-sm text-gray-400">Filtro automático para sistemas Offline ou com Alerta/Erro.</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-left text-sm">
+                            <thead class="bg-slate-700">
+                                <tr>
+                                    <th class="px-6 py-3 font-semibold text-gray-300">Prioridade</th>
+                                    <th class="px-6 py-3 font-semibold text-gray-300">Nome do Sistema</th>
+                                    <th class="px-6 py-3 font-semibold text-gray-300">Localização</th>
+                                    <th class="px-6 py-3 font-semibold text-gray-300 text-right">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-700">
+                                ${sortedSystems.filter(s => s.status_operacional !== 'Online').map(sys => `
+                                    <tr class="hover:bg-slate-700/70 transition ${sys.status_operacional === 'Alerta/Erro' ? 'bg-red-900/10' : ''}">
+                                        <td class="px-6 py-4">
+                                            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase 
+                                            ${sys.status_operacional === 'Online' ? 'bg-teal-900/50 text-teal-400' : 
+                                                sys.status_operacional === 'Alerta/Erro' ? 'bg-red-900/50 text-red-400' : 'bg-gray-700/50 text-gray-400'}">
+                                                ${sys.status_operacional}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 font-medium text-gray-200">${sys.nome}</td>
+                                        <td class="px-6 py-4 text-gray-400">${sys.localizacao.rua || 'N/A'}</td>
+                                        <td class="px-6 py-4 text-right">
+                                            <button onclick="router('analytics', {sysId: '${sys._id}'})" class="p-2 text-teal-400 hover:bg-slate-600 rounded-lg transition" title="Ver Estatísticas"><i class="fa-solid fa-chart-line"></i> Dados</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                                ${sortedSystems.filter(s => s.status_operacional === 'Online').slice(0, 2).map(sys => `
+                                    <tr class="hover:bg-slate-700/70 transition">
+                                        <td class="px-6 py-4">
+                                            <span class="px-3 py-1 rounded-full text-xs font-bold uppercase bg-teal-900/50 text-teal-400">Online</span>
+                                        </td>
+                                        <td class="px-6 py-4 font-medium text-gray-200">${sys.nome}</td>
+                                        <td class="px-6 py-4 text-gray-400">${sys.localizacao.rua || 'N/A'}</td>
+                                        <td class="px-6 py-4 text-right">
+                                            <button onclick="router('analytics', {sysId: '${sys._id}'})" class="p-2 text-teal-400 hover:bg-slate-600 rounded-lg transition" title="Ver Estatísticas"><i class="fa-solid fa-chart-line"></i> Dados</button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 6. ADMIN GESTÃO SISTEMAS (CRUD)
+        function renderAdminSystems(container) {
+            const systems = MOCK_SYSTEMS; 
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                    <h2 class="text-3xl font-extrabold text-gray-100">Gestão de Sistemas Fotovoltaicos</h2>
+                    <button onclick="alert('Funcionalidade CRUD: Implementar Novo Sistema via API (sistemas.php?action=create)')" class="bg-primary text-white px-5 py-2.5 rounded-xl shadow-lg hover:bg-teal-600 transition-all font-bold flex items-center space-x-2">
+                        <i class="fa-solid fa-plus"></i> <span>Novo Sistema</span>
+                    </button>
+                </div>
+
+                <div class="bg-slate-800 p-5 rounded-xl shadow-lg mb-8 flex flex-col md:flex-row gap-4 border border-slate-700/50">
+                    <div class="flex-1 relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-gray-400"></i>
+                        <input type="text" placeholder="Buscar por nome, endereço ou ID do sistema..." class="w-full pl-12 p-3 rounded-xl bg-slate-700 border-slate-600 text-gray-100 focus:border-teal-400 outline-none">
+                    </div>
+                    <button class="bg-blue-600 text-white px-5 py-3 rounded-xl hover:bg-blue-700 transition font-bold"><i class="fa-solid fa-search mr-1"></i> Buscar</button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                    ${systems.map(sys => {
+                        const client = getUser(sys.id_cliente) || { nome: 'Não Vinculado', email: 'N/A' };
+                        const statusClass = sys.status_operacional === 'Online' ? 'bg-teal-900/30 border-teal-500' : 
+                                            sys.status_operacional === 'Alerta/Erro' ? 'bg-red-900/30 border-red-500' : 'bg-gray-700/30 border-gray-500';
+                        const statusColor = sys.status_operacional === 'Online' ? 'text-teal-400' : 
+                                            sys.status_operacional === 'Alerta/Erro' ? 'text-red-400' : 'text-gray-400';
+                        return `
+                        <div class="bg-slate-800 p-6 rounded-2xl shadow-xl border-t-4 ${statusClass} flex flex-col justify-between hover:shadow-teal-900/30 transition-all duration-300">
+                            <div>
+                                <div class="flex items-center justify-between mb-3">
+                                    <h3 class="font-bold text-xl text-gray-100">${sys.nome}</h3>
+                                    <span class="text-xs px-3 py-1 rounded-full font-semibold ${statusColor} border border-current">${sys.status_operacional}</span>
+                                </div>
+                                <p class="text-sm text-gray-400 mb-4"><i class="fa-solid fa-map-pin mr-2"></i> ${sys.localizacao.rua || 'N/A'}</p>
+                                
+                                <div class="bg-slate-700/50 p-3 rounded-lg text-sm mb-4">
+                                    <p class="text-gray-400"><i class="fa-solid fa-user-tag mr-2"></i> Cliente: <span class="text-gray-200 font-medium">${client.nome}</span></p>
+                                    <p class="text-gray-500"><i class="fa-solid fa-plug-circle-bolt mr-2"></i> Capacidade: <span class="text-yellow-400 font-medium">${sys.capacidade_wp} Wp</span></p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end gap-3 mt-4 pt-4 border-t border-slate-700">
+                                <button onclick="router('analytics', {sysId: '${sys._id}'})" class="text-blue-400 hover:bg-slate-700 rounded-lg p-3 transition" title="Ver Estatísticas"><i class="fa-solid fa-chart-line"></i></button>
+                                <button onclick="alert('Ação de edição: Deve chamar sistemas.php?action=update')" class="text-yellow-400 hover:bg-slate-700 rounded-lg p-3 transition" title="Editar Informações"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button onclick="alert('Ação de exclusão: Deve chamar sistemas.php?action=delete')" class="text-red-400 hover:bg-slate-700 rounded-lg p-3 transition" title="Excluir Sistema"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        // 7. ADMIN GESTÃO CLIENTES (CRUD)
+        function renderAdminClients(container) {
+            const clients = MOCK_CLIENTS;
+            
+            container.innerHTML = `
+                <div class="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
+                    <h2 class="text-3xl font-extrabold text-gray-100">Gestão de Clientes Beneficiários</h2>
+                    <button onclick="alert('Funcionalidade CRUD: Implementar Novo Cliente via API (clientes.php?action=create)')" class="bg-primary text-white px-5 py-2.5 rounded-xl shadow-lg hover:bg-teal-600 transition-all font-bold flex items-center space-x-2">
+                        <i class="fa-solid fa-user-plus"></i> <span>Novo Cliente</span>
+                    </button>
+                </div>
+
+                <div class="bg-slate-800 p-5 rounded-xl shadow-lg mb-8 flex flex-col md:flex-row gap-4 border border-slate-700/50">
+                    <input type="text" placeholder="Buscar por nome, email, telefone ou sistema vinculado..." class="w-full p-3 rounded-xl bg-slate-700 border-slate-600 text-gray-100 focus:border-teal-400 outline-none">
+                    <button class="bg-blue-600 text-white px-5 py-3 rounded-xl hover:bg-blue-700 transition font-bold"><i class="fa-solid fa-search mr-1"></i> Buscar</button>
+                </div>
+
+                <div class="bg-slate-800 rounded-2xl shadow-xl overflow-hidden border border-slate-700/50">
+                    <table class="min-w-full text-left text-sm">
+                        <thead class="bg-slate-700">
+                            <tr>
+                                <th class="px-6 py-4 font-semibold text-gray-300">Nome do Cliente</th>
+                                <th class="px-6 py-4 font-semibold text-gray-300">Email / Telefone</th>
+                                <th class="px-6 py-4 font-semibold text-gray-300">Sistema Vinculado</th>
+                                <th class="px-6 py-4 font-semibold text-gray-300 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-700">
+                            ${clients.map(cli => {
+                                const system = getSystem(cli.sistema_id);
+                                return `
+                                <tr class="hover:bg-slate-700/70 transition">
+                                    <td class="px-6 py-4 font-bold text-gray-200">${cli.nome}<br><span class="text-xs text-gray-500 font-normal">${cli.endereco || 'N/A'}</span></td>
+                                    <td class="px-6 py-4 text-gray-400">
+                                        ${cli.email}<br>
+                                        <span class="text-teal-400 text-xs">${cli.tel}</span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="bg-blue-900/50 text-blue-400 px-3 py-1 rounded-full text-xs font-semibold">${system ? system.nome : 'Nenhum'}</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right space-x-2">
+                                        <button onclick="router('analytics', {sysId: '${cli.sistema_id}'})" class="p-2 text-teal-400 hover:bg-slate-700 rounded-lg disabled:opacity-50" title="Ver Dados do Cliente" ${!cli.sistema_id ? 'disabled' : ''}>
+                                            <i class="fa-solid fa-chart-line"></i>
+                                        </button>
+                                        <button onclick="alert('Ação de edição: Deve chamar clientes.php?action=update')" class="p-2 text-yellow-400 hover:bg-slate-700 rounded-lg" title="Editar Cliente"><i class="fa-solid fa-pen-to-square"></i></button>
+                                        <button onclick="alert('Ação de exclusão: Deve chamar clientes.php?action=delete')" class="p-2 text-red-400 hover:bg-slate-700 rounded-lg" title="Excluir Cliente"><i class="fa-solid fa-trash-can"></i></button>
+                                    </td>
+                                </tr>
+                            `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

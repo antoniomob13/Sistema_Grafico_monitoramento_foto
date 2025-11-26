@@ -1,0 +1,12 @@
+{
+    "require": {
+        "php": ">=8.5",
+        "mongodb/mongodb": "^2.1.4"
+    },
+"minimum-stability": "dev",
+    "autoload": {
+        "files": [
+            "config/db.php"
+        ]
+    }
+}

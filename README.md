@@ -1,0 +1,1 @@
+# Sistema_Grafico_monitoramento_foto
